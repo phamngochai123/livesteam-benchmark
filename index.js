@@ -1,4 +1,5 @@
 var spawn = require('child_process').spawn;
+const fs = require('fs');
 var axios = require('axios');
 const readline = require('readline').createInterface({
   input: process.stdin,
@@ -60,22 +61,38 @@ const convertRtmpLink = (resFromServer) => {
   return resFromServer.data.data.streamUrl + '/' + resFromServer.data.data.streamToken;
 }
 const runStream = () => {
-  for (let i = 0; i < countStream; i++) {
-    arrStream.push(getRtmpLink());
+  let checkFileExists = true, arrFileNotExists = [];
+  for(let i=0; i<countStream; i++) {
+    if (!fs.existsSync(pathToFile[i])) {
+      checkFileExists = false;
+      arrFileNotExists.push(pathToFile[i]);
+    }
   }
-  axios.all(arrStream)
-    .then((res) => {
-      for (let i = 0; i < countStream; i++) {
-        arg[4] = pathToFile[i] || pathToFile[pathToFile.length - 1];
-        let rtmpLink = convertRtmpLink(res[i]);
-        setTimeout(() => {
-          showLogProcess({ stream: createStreamProcess(rtmpLink), rtmpLink, file: arg[4] });
-        }, timeDelay * 1000 * i)
-      }
+  if(checkFileExists) {
+    for (let i = 0; i < countStream; i++) {
+      arrStream.push(getRtmpLink());
+    }
+    axios.all(arrStream)
+      .then((res) => {
+        for (let i = 0; i < countStream; i++) {
+          arg[4] = pathToFile[i] || pathToFile[pathToFile.length - 1];
+          let rtmpLink = convertRtmpLink(res[i]);
+          setTimeout(() => {
+            showLogProcess({ stream: createStreamProcess(rtmpLink), rtmpLink, file: arg[4] });
+          }, timeDelay * 1000 * i)
+        }
+      })
+      .catch((error) => {
+        console.log('error: ', error);
+      })
+  } else {
+    console.log('\n');
+    arrFileNotExists.map((pathFile) => {
+      console.log(`Lỗi: ${pathFile} không tồn tại.\n`)
     })
-    .catch((error) => {
-      console.log('error: ', error);
-    })
+    console.log('Vui lòng kiểm tra lại!');
+    process.exit(1);
+  }
 }
 const startStream = () => {
   readline.question(`Nhập link live (mặc định ${liveStreamLink}): `, (resLinkLive) => {
