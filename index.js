@@ -70,7 +70,7 @@ const runStream = () => {
         let rtmpLink = convertRtmpLink(res[i]);
         setTimeout(() => {
           showLogProcess({ stream: createStreamProcess(rtmpLink), rtmpLink, file: arg[4] });
-        }, i === 0 ? 0 : timeDelay * 1000)
+        }, timeDelay * 1000 * i)
       }
     })
     .catch((error) => {
