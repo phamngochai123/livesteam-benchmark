@@ -1,0 +1,20 @@
+{
+  "name": "tool-upload",
+  "version": "1.0.0",
+  "description": "tool upload for VA",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "haipn",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.19.2",
+    "bluebird": "^3.7.2",
+    "child_process": "^1.0.2",
+    "keypress": "^0.2.1",
+    "node-cmd": "^3.0.0",
+    "node-command-line": "^1.0.2",
+    "readline": "^1.3.0"
+  }
+}
