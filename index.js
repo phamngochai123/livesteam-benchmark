@@ -4,11 +4,11 @@ const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
 })
-var liveStreamLink = 'http://172.16.20.86/livestreams/1/live';
+var liveStreamLink = 'http://172.16.20.86/livestream/live';
 const pathToFfmpeg = './ffmpeg/bin/ffmpeg';
 var pathToFile = ['/Applications/work/project/tool-upload/public/VideoSample-720p.mp4'];
 var arg = ['-re', '-stream_loop', '-1', '-i', pathToFile[0], '-acodec', 'copy', '-vcodec', 'copy', '-f', 'flv']
-var rtmpLink = '', child, scriptOutput = "", arrStream = [], countStream = 1, arrRunning = [], retry = {};
+var rtmpLink = '', child, scriptOutput = "", arrStream = [], countStream = 1, arrRunning = [], retry = {}, timeDelay = 0;
 
 const auth = {
   username: '75Q1nECJD2',
@@ -39,12 +39,12 @@ const showLogProcess = (streamProcess) => {
   });
 
   streamProcess.stream.on('close', function (code) {
-    if(retry[streamProcess.rtmpLink] !== undefined) {
+    if (retry[streamProcess.rtmpLink] !== undefined) {
       retry[streamProcess.rtmpLink] += 1;
     } else {
       retry[streamProcess.rtmpLink] = 1;
     }
-    if(retry[streamProcess.rtmpLink] > 3) {
+    if (retry[streamProcess.rtmpLink] > 3) {
       console.error(`${streamProcess.rtmpLink} - ${streamProcess.file} close (code = ${code})`);
       getRtmpLink().then((res) => {
         console.log('\r\n\r\n------open new rtmp link-----' + convertRtmpLink(res) + '\r\n\r\n');
@@ -57,27 +57,41 @@ const showLogProcess = (streamProcess) => {
   });
 }
 const convertRtmpLink = (resFromServer) => {
-  return resFromServer.data.data.streamUrl + '/' + resFromServer.data.data.streamId;
+  return resFromServer.data.data.streamUrl + '/' + resFromServer.data.data.streamToken;
+}
+const runStream = () => {
+  for (let i = 0; i < countStream; i++) {
+    arrStream.push(getRtmpLink());
+  }
+  axios.all(arrStream)
+    .then((res) => {
+      for (let i = 0; i < countStream; i++) {
+        arg[4] = pathToFile[i] || pathToFile[pathToFile.length - 1];
+        let rtmpLink = convertRtmpLink(res[i]);
+        setTimeout(() => {
+          showLogProcess({ stream: createStreamProcess(rtmpLink), rtmpLink, file: arg[4] });
+        }, i === 0 ? 0 : timeDelay * 1000)
+      }
+    })
+    .catch((error) => {
+      console.log('error: ', error);
+    })
 }
 const startStream = () => {
   readline.question(`Nhập link live (mặc định ${liveStreamLink}): `, (resLinkLive) => {
-    if(resLinkLive) {
+    if (resLinkLive) {
       liveStreamLink = resLinkLive;
     }
-    for (let i = 0; i < countStream; i++) {
-      arrStream.push(getRtmpLink());
-    }
-    axios.all(arrStream)
-      .then((res) => {
-        for (let i = 0; i < countStream; i++) {
-          arg[4] = pathToFile[i] || pathToFile[pathToFile.length - 1];
-          let rtmpLink = convertRtmpLink(res[i]);
-          showLogProcess({ stream: createStreamProcess(rtmpLink), rtmpLink, file: arg[4] });
+    if (countStream > 1) {
+      readline.question('Nhập thời gian delay giữa các job (tính theo giây, mặc định là 0): ', (resDelay) => {
+        if (resDelay && Number(resDelay)) {
+          timeDelay = parseInt(resDelay);
         }
+        runStream();
       })
-      .catch((error) => {
-        console.log('error: ', error);
-      })
+    } else {
+      runStream();
+    }
   })
 }
 const main = () => {
