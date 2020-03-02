@@ -6,7 +6,7 @@ const readline = require('readline').createInterface({
 })
 var liveStreamLink = 'http://172.16.20.86/livestream/live';
 const pathToFfmpeg = './ffmpeg/bin/ffmpeg';
-var pathToFile = ['/Applications/work/project/tool-upload/public/VideoSample-720p.mp4'];
+var pathToFile = ['/Applications/work/project/livesteam-benchmark/public/Dummy.mp4'];
 var arg = ['-re', '-stream_loop', '-1', '-i', pathToFile[0], '-acodec', 'copy', '-vcodec', 'copy', '-f', 'flv']
 var rtmpLink = '', child, scriptOutput = "", arrStream = [], countStream = 1, arrRunning = [], retry = {}, timeDelay = 0;
 
@@ -107,7 +107,7 @@ const main = () => {
       countStream = resCount;
     }
     readline.question('Chọn file (yes/no)?', (resChoice) => {
-      if (['n', 'no', 'n\n', 'no\n'].indexOf(resChoice) !== -1) {
+      if (!resChoice || ['n', 'no', 'n\n', 'no\n','\n'].indexOf(resChoice) !== -1) {
         startStream();
       } else {
         readline.question('Mời bạn nhập đường dẫn file (các file cách nhau bởi dấu ,):', (resFile) => {
