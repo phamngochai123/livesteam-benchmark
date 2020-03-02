@@ -6,7 +6,7 @@ const readline = require('readline').createInterface({
 })
 var liveStreamLink = 'http://172.16.20.86/livestreams/1/live';
 const pathToFfmpeg = './ffmpeg/bin/ffmpeg';
-var pathToFile = ['/Applications/work/project/tool-upload/public/365720.mp4'];
+var pathToFile = ['/Applications/work/project/tool-upload/public/VideoSample-720p.mp4'];
 var arg = ['-re', '-stream_loop', '-1', '-i', pathToFile[0], '-acodec', 'copy', '-vcodec', 'copy', '-f', 'flv']
 var rtmpLink = '', child, scriptOutput = "", arrStream = [], countStream = 1, arrRunning = [], retry = {};
 
@@ -60,7 +60,7 @@ const convertRtmpLink = (resFromServer) => {
   return resFromServer.data.data.streamUrl + '/' + resFromServer.data.data.streamId;
 }
 const startStream = () => {
-  readline.question('Nhập link live (mặc định http://172.16.20.86/livestreams/1/live): ', (resLinkLive) => {
+  readline.question(`Nhập link live (mặc định ${liveStreamLink}): `, (resLinkLive) => {
     if(resLinkLive) {
       liveStreamLink = resLinkLive;
     }
