@@ -11,7 +11,7 @@ var liveStreamLink = 'http://172.16.20.86/livestream/live';
 const pathToFfmpeg = './ffmpeg/bin/ffmpeg';
 var pathToFile = ['/Applications/work/project/livesteam-benchmark/public/Dummy.mp4'];
 var arg = ['-re', '-stream_loop', '-1', '-i', pathToFile[0], '-acodec', 'copy', '-vcodec', 'copy', '-f', 'flv']
-var rtmpLink = '', child, scriptOutput = "", arrStream = [], countStream = 1, arrRunning = [], retry = {}, timeDelay = 0, listRtmplink = [];
+var scriptOutput = '', arrStream = [], countStream = 1, arrRunning = [], retry = {}, timeDelay = 0, listRtmplink = [];
 
 const auth = {
   username: '75Q1nECJD2',
@@ -63,7 +63,7 @@ const convertRtmpLink = (resFromServer) => {
   return resFromServer.data.data.streamUrl + '/' + resFromServer.data.data.streamToken;
 }
 const runStream = () => {
-  console.log(colors.bgBlue(`Bắt đầu chạy-----------`));
+  console.log(colors.bgBlue(`Start job-----------`));
   for (let i = 0; i < listRtmplink.length; i++) {
     arg[4] = pathToFile[i] || pathToFile[pathToFile.length - 1];
     let rtmpLink = listRtmplink[i];
@@ -81,15 +81,13 @@ const getListLinkRtmpFromServer = () => {
       for (let i = 0; i < countStream; i++) {
         listRtmplink.push(convertRtmpLink(res[i]));
       }
+      setTimeDelay();
     })
     .catch((error) => {
       console.log('error: ', error);
     })
 }
 
-const startStream = () => {
-  runStream();
-}
 const setTimeDelay = () => {
   readline.question('Nhập thời gian delay giữa các job (tính theo giây, enter để bỏ qua, mặc định là 0): ', (resDelay) => {
     if (!(resDelay.trim()) || (resDelay && Number(resDelay))) {
@@ -106,11 +104,7 @@ const setApiGetRtmpLink = () => {
     if (resLinkLive) {
       liveStreamLink = resLinkLive;
     }
-    if (countStream > 1) {
-      setTimeDelay();
-    } else {
-      getListLinkRtmpFromServer();
-    }
+    getListLinkRtmpFromServer();
   })
 }
 const choiceFileRtmpLink = () => {
@@ -175,7 +169,7 @@ const main = async () => {
       countStream = resCount;
       readline.question('Chọn file (yes/no)?', (resChoice) => {
         if (!resChoice || ['n', 'no', 'n\n', 'no\n', '\n'].indexOf(resChoice) !== -1) {
-          startStream();
+          choiceFileRtmpLink();
         } else {
           choseFileLive();
         }
