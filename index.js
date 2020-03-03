@@ -1,6 +1,8 @@
-var spawn = require('child_process').spawn;
+const colors = require('colors/safe');
+const spawn = require('child_process').spawn;
 const fs = require('fs');
-var axios = require('axios');
+const axios = require('axios');
+const readFileUtf8 = require('read-file-utf8');
 const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
@@ -9,7 +11,7 @@ var liveStreamLink = 'http://172.16.20.86/livestream/live';
 const pathToFfmpeg = './ffmpeg/bin/ffmpeg';
 var pathToFile = ['/Applications/work/project/livesteam-benchmark/public/Dummy.mp4'];
 var arg = ['-re', '-stream_loop', '-1', '-i', pathToFile[0], '-acodec', 'copy', '-vcodec', 'copy', '-f', 'flv']
-var rtmpLink = '', child, scriptOutput = "", arrStream = [], countStream = 1, arrRunning = [], retry = {}, timeDelay = 0;
+var rtmpLink = '', child, scriptOutput = "", arrStream = [], countStream = 1, arrRunning = [], retry = {}, timeDelay = 0, listRtmplink = [];
 
 const auth = {
   username: '75Q1nECJD2',
@@ -61,59 +63,108 @@ const convertRtmpLink = (resFromServer) => {
   return resFromServer.data.data.streamUrl + '/' + resFromServer.data.data.streamToken;
 }
 const runStream = () => {
-  let checkFileExists = true, arrFileNotExists = [];
-  for(let i=0; i<countStream; i++) {
-    if (!fs.existsSync(pathToFile[i])) {
-      checkFileExists = false;
-      arrFileNotExists.push(pathToFile[i]);
-    }
-  }
-  if(checkFileExists) {
-    for (let i = 0; i < countStream; i++) {
-      arrStream.push(getRtmpLink());
-    }
-    axios.all(arrStream)
-      .then((res) => {
-        for (let i = 0; i < countStream; i++) {
-          arg[4] = pathToFile[i] || pathToFile[pathToFile.length - 1];
-          let rtmpLink = convertRtmpLink(res[i]);
-          setTimeout(() => {
-            showLogProcess({ stream: createStreamProcess(rtmpLink), rtmpLink, file: arg[4] });
-          }, timeDelay * 1000 * i)
-        }
-      })
-      .catch((error) => {
-        console.log('error: ', error);
-      })
-  } else {
-    console.log('\n');
-    arrFileNotExists.map((pathFile) => {
-      console.log(`Lỗi: ${pathFile} không tồn tại.\n`)
-    })
-    console.log('Vui lòng kiểm tra lại!');
-    process.exit(1);
+  console.log(colors.bgBlue(`Bắt đầu chạy-----------`));
+  for (let i = 0; i < listRtmplink.length; i++) {
+    arg[4] = pathToFile[i] || pathToFile[pathToFile.length - 1];
+    let rtmpLink = listRtmplink[i];
+    setTimeout(() => {
+      showLogProcess({ stream: createStreamProcess(rtmpLink), rtmpLink, file: arg[4] });
+    }, timeDelay * 1000 * i)
   }
 }
+const getListLinkRtmpFromServer = () => {
+  for (let i = 0; i < countStream; i++) {
+    arrStream.push(getRtmpLink());
+  }
+  axios.all(arrStream)
+    .then((res) => {
+      for (let i = 0; i < countStream; i++) {
+        listRtmplink.push(convertRtmpLink(res[i]));
+      }
+    })
+    .catch((error) => {
+      console.log('error: ', error);
+    })
+}
+
 const startStream = () => {
-  readline.question(`Nhập link live (mặc định ${liveStreamLink}): `, (resLinkLive) => {
+  runStream();
+}
+const setTimeDelay = () => {
+  readline.question('Nhập thời gian delay giữa các job (tính theo giây, enter để bỏ qua, mặc định là 0): ', (resDelay) => {
+    if (!(resDelay.trim()) || (resDelay && Number(resDelay))) {
+      timeDelay = parseInt(resDelay);
+      runStream();
+    } else {
+      console.log(colors.yellow('Không đúng định dạng. Vui lòng nhập lại!'));
+      setTimeDelay();
+    }
+  })
+}
+const setApiGetRtmpLink = () => {
+  readline.question(`Nhập api để lấy link rtmp push (mặc định ${liveStreamLink}): `, (resLinkLive) => {
     if (resLinkLive) {
       liveStreamLink = resLinkLive;
     }
     if (countStream > 1) {
-      readline.question('Nhập thời gian delay giữa các job (tính theo giây, mặc định là 0): ', (resDelay) => {
-        if (resDelay && Number(resDelay)) {
-          timeDelay = parseInt(resDelay);
-        }
-        runStream();
-      })
+      setTimeDelay();
     } else {
-      runStream();
+      getListLinkRtmpFromServer();
     }
   })
 }
-const main = () => {
+const choiceFileRtmpLink = () => {
+  readline.question(`Chọn file để lấy link rtmp push (nhập đường dẫn tới file hoặc enter để bỏ qua):`, async (resChoseFileListRtmpLink) => {
+    resChoseFileListRtmpLink = resChoseFileListRtmpLink.trim();
+    if (!resChoseFileListRtmpLink) {
+      setApiGetRtmpLink();
+    } else {
+      if (!checkFileExists(resChoseFileListRtmpLink)) {
+        console.log(colors.yellow(`Lỗi: File ${resChoseFileListRtmpLink} không tồn tại.`));
+        choiceFileRtmpLink();
+      } else {
+        const content = await readFileUtf8(resChoseFileListRtmpLink);
+        const arrContent = content.split('\n');
+        listRtmplink = [...arrContent];
+        setTimeDelay();
+      }
+    }
+  })
+}
+const checkFileExists = (filePath) => {
+  return !filePath ? false : fs.existsSync(filePath);
+}
+const choseFileLive = () => {
+  readline.question('Mời bạn nhập đường dẫn file (các file cách nhau bởi dấu ,):', (resFile) => {
+    if (resFile && resFile.length) {
+      let checkFileInput = true, fileError = '';
+      let arrFile = resFile.split(','), arrFileFormat = [];
+      if (arrFile.length) {
+        arrFile.map((pathFile) => {
+          pathFile = pathFile.indexOf('\n') !== -1 ? pathFile.trim().substr(0, pathFile.indexOf('\n')) : pathFile;
+          pathFile = pathFile.trim();
+          arrFileFormat.push(pathFile);
+          if (checkFileInput) {
+            checkFileInput = checkFileExists(pathFile);
+            fileError = pathFile;
+          }
+        });
+      }
+      if (!checkFileInput) {
+        console.log(colors.yellow('Lỗi: File ' + fileError + ' không tồn tại!'));
+        choseFileLive();
+      } else {
+        pathToFile = [...arrFileFormat];
+        choiceFileRtmpLink();
+      }
+    } else {
+      choiceFileRtmpLink();
+    }
+  })
+}
+const main = async () => {
   readline.question('Chọn số luồng muốn tạo (1-10):', (resCount) => {
-    if (resCount && Number(resCount)) {
+    if (resCount && Number(resCount) && (parseInt(resCount) > 0 && parseInt(resCount) < 11)) {
       if (parseInt(resCount) > 10) {
         resCount = 10;
       } else if (parseInt(resCount) < 1) {
@@ -122,26 +173,17 @@ const main = () => {
         resCount = parseInt(resCount);
       }
       countStream = resCount;
-    }
-    readline.question('Chọn file (yes/no)?', (resChoice) => {
-      if (!resChoice || ['n', 'no', 'n\n', 'no\n','\n'].indexOf(resChoice) !== -1) {
-        startStream();
-      } else {
-        readline.question('Mời bạn nhập đường dẫn file (các file cách nhau bởi dấu ,):', (resFile) => {
-          if (resFile && resFile.length) {
-            let arrFile = resFile.split(','), arrFileFormat = [];
-            if (arrFile.length) {
-              arrFile.map((pathFile) => {
-                pathFile = pathFile.indexOf('\n') !== -1 ? pathFile.trim().substr(0, pathFile.indexOf('\n')) : pathFile;
-                arrFileFormat.push(pathFile);
-              });
-            }
-            pathToFile = [...arrFileFormat];
-          }
+      readline.question('Chọn file (yes/no)?', (resChoice) => {
+        if (!resChoice || ['n', 'no', 'n\n', 'no\n', '\n'].indexOf(resChoice) !== -1) {
           startStream();
-        })
-      }
-    })
+        } else {
+          choseFileLive();
+        }
+      })
+    } else {
+      console.log(colors.yellow('Lỗi: Không đúng định dạng. Vui lòng nhập số từ 1 đến 10!'))
+      main();
+    }
   })
 }
 main();
